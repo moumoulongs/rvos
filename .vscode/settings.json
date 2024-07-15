@@ -1,0 +1,10 @@
+{
+    "files.associations": {
+        "stddef.h": "c",
+        "platform.h": "c",
+        "os.h": "c",
+        "types.h": "c",
+        "random": "c",
+        "thread": "c"
+    }
+}

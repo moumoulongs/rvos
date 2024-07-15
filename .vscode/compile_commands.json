@@ -1,0 +1,31 @@
+[
+{
+  "directory": "/home/tnjja/桌面/rvos",
+  "arguments": ["/usr/bin/riscv64-unknown-elf-gcc", "-c", "-Iinclude", "-o", "build/.objs/kernel/linux/riscv64/release/src/start.S.o", "src/start.S"],
+  "file": "src/start.S"
+},
+{
+  "directory": "/home/tnjja/桌面/rvos",
+  "arguments": ["/usr/bin/riscv64-unknown-elf-gcc", "-c", "-Iinclude", "-o", "build/.objs/kernel/linux/riscv64/release/src/mem.S.o", "src/mem.S"],
+  "file": "src/mem.S"
+},
+{
+  "directory": "/home/tnjja/桌面/rvos",
+  "arguments": ["/usr/bin/riscv64-unknown-elf-gcc", "-c", "-Iinclude", "-nostdlib", "-fno-builtin", "-g", "-Wall", "-march=rv64g", "-mabi=lp64", "-o", "build/.objs/kernel/linux/riscv64/release/src/printf.c.o", "src/printf.c"],
+  "file": "src/printf.c"
+},
+{
+  "directory": "/home/tnjja/桌面/rvos",
+  "arguments": ["/usr/bin/riscv64-unknown-elf-gcc", "-c", "-Iinclude", "-nostdlib", "-fno-builtin", "-g", "-Wall", "-march=rv64g", "-mabi=lp64", "-o", "build/.objs/kernel/linux/riscv64/release/src/kernel.c.o", "src/kernel.c"],
+  "file": "src/kernel.c"
+},
+{
+  "directory": "/home/tnjja/桌面/rvos",
+  "arguments": ["/usr/bin/riscv64-unknown-elf-gcc", "-c", "-Iinclude", "-nostdlib", "-fno-builtin", "-g", "-Wall", "-march=rv64g", "-mabi=lp64", "-o", "build/.objs/kernel/linux/riscv64/release/src/uart.c.o", "src/uart.c"],
+  "file": "src/uart.c"
+},
+{
+  "directory": "/home/tnjja/桌面/rvos",
+  "arguments": ["/usr/bin/riscv64-unknown-elf-gcc", "-c", "-Iinclude", "-nostdlib", "-fno-builtin", "-g", "-Wall", "-march=rv64g", "-mabi=lp64", "-o", "build/.objs/kernel/linux/riscv64/release/src/page.c.o", "src/page.c"],
+  "file": "src/page.c"
+}]
