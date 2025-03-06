@@ -34,10 +34,12 @@ SRCS_C = \
 	printf.c \
 	page.c \
 	string.c \
-	sched.c \
+	proc.c \
 	trap.c \
 	plic.c \
 	timer.c \
+	spinlock.c \
+	start.c \
 	
 
 # SRCS_ASM & SRCS_C are defined in the Makefile of each project.

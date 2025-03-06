@@ -1,11 +1,13 @@
 #ifndef __SPINLOCK__
 #define __SPINLOCK__
 
-#include "types.h"
-
-struct {
+struct spinlock {
     uint32_t locked; //是否被使用
-}
+
+    // fot debugging:
+    char *name; // 锁的名字
+    struct cpu *cpu; // 锁的持有者
+};
 
 
 

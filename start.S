@@ -1,7 +1,7 @@
-#include "platform.h"
+#include "param.h"
 
-	# size of each hart's stack is 1024 bytes
-	.equ	STACK_SIZE, 1024
+	# size of each hart's stack is 4096 bytes
+	.equ	STACK_SIZE, 4096
 
 	.global	_start
 
@@ -24,21 +24,13 @@ _start:
 2:
 	# Setup stacks, the stack grows from bottom to top, so we put the
 	# stack pointer to the very end of the stack range.
-	slli	t0, t0, 10		# shift left the hart id by 1024
+	slli	t0, t0, 12		# shift left the hart id by 4096
 	la	sp, stacks + STACK_SIZE	# set the initial stack pointer
 					# to the end of the first stack space
 	add	sp, sp, t0		# move the current hart stack pointer
 					# to its place in the stack space
 
-	# At the end of start_kernel, schedule() will call MRET to switch
-	# to the first task, so we parepare the mstatus here.
-	# Notice: It is best not to assume that the initial value of mstatus is
-	# zero.
-	# Set mstatus.MPP to 3, so we still run in Machine mode after MRET.
-	# Set mstatus.MPIE to 1, so MRET will enable the interrupt.
-	li	t0, 3 << 11 | 1 << 7
-	csrs	mstatus, t0
-	j	start_kernel		# hart 0 jump to c
+	j	start		# hart 0 jump to c
 
 park:
 	wfi
@@ -48,6 +40,6 @@ park:
 	# is always 16-byte aligned.
 .balign 16
 stacks:
-	.skip	STACK_SIZE * MAXNUM_CPU # allocate space for all the harts stacks
+	.skip	STACK_SIZE * NCPU # allocate space for all the harts stacks
 
 	.end				# End of file
