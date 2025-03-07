@@ -8,6 +8,18 @@
 #include <stddef.h>
 #include <stdarg.h>
 
+struct buf;
+struct context;
+struct file;
+struct inode;
+struct pipe;
+struct proc;
+struct spinlock;
+struct sleeplock;
+struct stat;
+struct superblock;
+
+
 /* uart */
 extern int uart_putc(char ch);
 extern void uart_puts(char *s);
@@ -59,6 +71,9 @@ void initlock(struct spinlock*, char*);
 void release(struct spinlock*);
 void push_off(void);
 void pop_off(void);
+
+// swtch.S
+void            swtch(struct context*, struct context*);
 
 // proc.c
 int             cpuid(void);

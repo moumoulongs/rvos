@@ -74,7 +74,7 @@ struct trapframe {
 	/* 280 */ reg_t t6;
   };
 
-enum procstate { UNUSED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
+enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
 // 进程状态
 struct proc {

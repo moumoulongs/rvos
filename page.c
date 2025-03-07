@@ -60,4 +60,21 @@ void *kalloc(void)
 }
 
 
+// Copy from kernel to user.
+// Copy len bytes from src to physical address dstpa.
+// Return 0 on success, -1 on error.
+int copyout(uint64_t dstpa, char *src, uint64_t len)
+{
+	uint64_t n;
 
+	while( len > 0 ) {
+		n = PGSIZE - (dstpa % PGSIZE);
+		if( n > len )
+			n = len;
+		memmove((void*)dstpa, src, n);
+		len -= n;
+		src += n;
+		dstpa += n;
+	}
+	return 0;
+}
