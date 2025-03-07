@@ -78,3 +78,12 @@ int copyout(uint64_t dstpa, char *src, uint64_t len)
 	}
 	return 0;
 }
+
+int copyin(char *dst, uint64_t src, uint64_t len)
+{
+    if (src == 0 || dst == 0 || len == 0)
+        return -1; // 基本参数检查
+    
+    memmove(dst, (void*)src, len);
+    return 0;
+}

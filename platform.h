@@ -33,16 +33,17 @@
 /* UART0 中断源号 */
 #define UART0_IRQ 10
 
-/* PLIC设备 */
-#define PLIC_BASE 0x0c000000L
+// virtio mmio interface
+#define VIRTIO0 0x10001000
+#define VIRTIO0_IRQ 1
 
-#define PLIC_PRIORITY(id) (PLIC_BASE + (id) * 4) /*寄存器地址*/
-#define PLIC_PENDING(id) (PLIC_BASE + 0x1000 + ((id) / 32) * 4) /*中断是否发生*/
-#define PLIC_MENABLE(hart, id) (PLIC_BASE + 0x2000 + (hart) * 0x80 + ((id) / 32) * 4) /*是否开始该中断源*/
-#define PLIC_MTHRESHOLD(hart) (PLIC_BASE + 0x200000 + (hart) * 0x1000) /*中断源优先级阈值*/
-/*操作同一个寄存器 读为claim 写为complete*/
-#define PLIC_MCLAIM(hart) (PLIC_BASE + 0x200004 + (hart) * 0x1000) /*获取当前发生的最高优先级中断源ID， 成功后清楚对应pending位*/
-#define PLIC_MCOMPLETE(hart) (PLIC_BASE + 0x200004 + (hart) * 0x1000) /*通知PLIC对该路中断的处理已经结束*/
+/* PLIC设备 */
+#define PLIC 0x0c000000L
+#define PLIC_PRIORITY (PLIC + 0x0)
+#define PLIC_PENDING (PLIC + 0x1000)
+#define PLIC_SENABLE(hart) (PLIC + 0x2080 + (hart)*0x100)
+#define PLIC_SPRIORITY(hart) (PLIC + 0x201000 + (hart)*0x2000)
+#define PLIC_SCLAIM(hart) (PLIC + 0x201004 + (hart)*0x2000)
 
 
 /*内存末地址*/
@@ -55,3 +56,6 @@
 #define CLINT_MTIME (CLINT_BASE + 0xBFF8) // cycles since boot.
 
 #endif /* __PLATFORM_H__ */
+
+
+

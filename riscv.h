@@ -1,3 +1,4 @@
+#ifndef __ASSEMBLER__
 #ifndef __RISCV_H__
 #define __RISCV_H__
 
@@ -354,7 +355,7 @@ sfence_vma()
 }
 
 #endif /* __RISCV_H__ */
-
+#endif /* __ASSEMBLER__ */
 
 
 #define PGSIZE 4096 // bytes per page

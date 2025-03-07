@@ -32,7 +32,7 @@ start()
 
   // configure Physical Memory Protection to give supervisor mode
   // access to all of physical memory.
-  w_pmpaddr0(0x3fffffffffffffull);
+  w_pmpaddr0(0xFFFFFFFF);
   w_pmpcfg0(0xf);
 
   // ask for clock interrupts.
@@ -54,7 +54,7 @@ timerinit()
   w_mie(r_mie() | MIE_STIE);
   
   // enable the sstc extension (i.e. stimecmp).
-  w_menvcfg(r_menvcfg() | (1L << 63)); 
+  w_menvcfg(r_menvcfg() | (1 << 31)); 
   
   // allow supervisor to use stimecmp and time.
   w_mcounteren(r_mcounteren() | 2);

@@ -201,7 +201,7 @@ void userinit(void)
 // Sets up child kernel stack to return as if from fork() system call.
 int fork(void)
 {
-    int i, pid;
+    int pid;
     struct proc *np;
     struct proc *p = myproc();
 
@@ -212,7 +212,7 @@ int fork(void)
     }
 
     // Copy user memory from parent to child.
-    memmove(np->stack, p->stack, p->sz);
+    memmove((void*)np->stack, (void*)p->stack, p->sz);
     np->sz = p->sz;
 
     // copy saved user registers.
@@ -560,7 +560,7 @@ killed(struct proc *p)
 int
 either_copyout(int user_dst, uint64_t dst, void *src, uint64_t len)
 {
-  struct proc *p = myproc();
+  // struct proc *p = myproc();
   if(user_dst){
     return copyout(dst, src, len);
   } else {
@@ -575,7 +575,6 @@ either_copyout(int user_dst, uint64_t dst, void *src, uint64_t len)
 int
 either_copyin(void *dst, int user_src, uint64_t src, uint64_t len)
 {
-  struct proc *p = myproc();
   if(user_src){
     return copyin(dst, src, len);
   } else {

@@ -23,7 +23,7 @@ RM = rm -rf
 OUTPUT_PATH = out
 
 SRCS_ASM = \
-	start.S \
+	entry.S \
 	mem.S \
 	switch.S \
 	kernelvec.S \
@@ -31,7 +31,7 @@ SRCS_ASM = \
 	
 
 SRCS_C = \
-	kernel.c \
+	main.c \
 	uart.c \
 	printf.c \
 	page.c \
@@ -39,7 +39,6 @@ SRCS_C = \
 	proc.c \
 	trap.c \
 	plic.c \
-	timer.c \
 	spinlock.c \
 	start.c \
 	

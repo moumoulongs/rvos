@@ -1,151 +1,109 @@
-        #
-        # low-level code to handle traps from user space into
-        # the kernel, and returns from kernel to user.
-        #
-        # the kernel maps the page holding this code
-        # at the same virtual address (TRAMPOLINE)
-        # in user and kernel space so that it continues
-        # to work when it switches page tables.
-        # kernel.ld causes this code to start at 
-        # a page boundary.
-        #
+#define SIZE_REG 4
 
-#include "riscv.h"
-#include "platform.h"
+# 将寄存器信息保存到 base 中
+.macro reg_save base
+    sw ra,   0*SIZE_REG(\base)
+    sw sp,   1*SIZE_REG(\base)
+    sw t0,   4*SIZE_REG(\base)
+    sw t1,   5*SIZE_REG(\base)
+    sw t2,   6*SIZE_REG(\base)
+    sw s0,   7*SIZE_REG(\base)
+    sw s1,   8*SIZE_REG(\base)
+    sw a0,   9*SIZE_REG(\base)
+    sw a1,   10*SIZE_REG(\base)
+    sw a2,   11*SIZE_REG(\base)
+    sw a3,   12*SIZE_REG(\base)
+    sw a4,   13*SIZE_REG(\base)
+    sw a5,   14*SIZE_REG(\base)
+    sw a6,   15*SIZE_REG(\base)
+    sw a7,   16*SIZE_REG(\base)
+    sw s2,   17*SIZE_REG(\base)
+    sw s3,   18*SIZE_REG(\base)
+    sw s4,   19*SIZE_REG(\base)
+    sw s5,   20*SIZE_REG(\base)
+    sw s6,   21*SIZE_REG(\base)
+    sw s7,   22*SIZE_REG(\base)
+    sw s8,   23*SIZE_REG(\base)
+    sw s9,   24*SIZE_REG(\base)
+    sw s10,  25*SIZE_REG(\base)
+    sw s11,  26*SIZE_REG(\base)
+    sw t3,   27*SIZE_REG(\base)
+    sw t4,   28*SIZE_REG(\base)
+    sw t5,   29*SIZE_REG(\base)
+.endm
 
-.section trampsec
-.globl trampoline
-.globl usertrap
-trampoline:
-.align 4
-.globl uservec
-uservec:    
-	#
-        # trap.c sets stvec to point here, so
-        # traps from user space start here,
-        # in supervisor mode, but with a
-        # user page table.
-        #
+#从 base 中读取
+.macro reg_restore base
+	lw ra,   0*SIZE_REG(\base)
+	lw sp,   1*SIZE_REG(\base)
+	lw t0,   4*SIZE_REG(\base)
+	lw t1,   5*SIZE_REG(\base)
+	lw t2,   6*SIZE_REG(\base)
+	lw s0,   7*SIZE_REG(\base)
+	lw s1,   8*SIZE_REG(\base)
+	lw a0,   9*SIZE_REG(\base)
+	lw a1,  10*SIZE_REG(\base)
+	lw a2,  11*SIZE_REG(\base)
+	lw a3,  12*SIZE_REG(\base)
+	lw a4,  13*SIZE_REG(\base)
+	lw a5,  14*SIZE_REG(\base)
+	lw a6,  15*SIZE_REG(\base)
+	lw a7,  16*SIZE_REG(\base)
+	lw s2,  17*SIZE_REG(\base)
+	lw s3,  18*SIZE_REG(\base)
+	lw s4,  19*SIZE_REG(\base)
+	lw s5,  20*SIZE_REG(\base)
+	lw s6,  21*SIZE_REG(\base)
+	lw s7,  22*SIZE_REG(\base)
+	lw s8,  23*SIZE_REG(\base)
+	lw s9,  24*SIZE_REG(\base)
+	lw s10, 25*SIZE_REG(\base)
+	lw s11, 26*SIZE_REG(\base)
+	lw t3,  27*SIZE_REG(\base)
+	lw t4,  28*SIZE_REG(\base)
+	lw t5,  29*SIZE_REG(\base)
+	lw t6,  30*SIZE_REG(\base)
+.endm
 
-        # save user a0 in sscratch so
-        # a0 can be used to get at TRAPFRAME.
-        csrw sscratch, a0
+.text
 
-        # each process has a separate p->trapframe memory area,
-        # but it's mapped to the same virtual address
-        # (TRAPFRAME) in every process's user page table.
-        li a0, TRAPFRAME
-        
-        # save the user registers in TRAPFRAME
-        sw ra, 40(a0)
-        sw sp, 48(a0)
-        sw gp, 56(a0)
-        sw tp, 64(a0)
-        sw t0, 72(a0)
-        sw t1, 80(a0)
-        sw t2, 88(a0)
-        sw s0, 96(a0)
-        sw s1, 104(a0)
-        sw a1, 120(a0)
-        sw a2, 128(a0)
-        sw a3, 136(a0)
-        sw a4, 144(a0)
-        sw a5, 152(a0)
-        sw a6, 160(a0)
-        sw a7, 168(a0)
-        sw s2, 176(a0)
-        sw s3, 184(a0)
-        sw s4, 192(a0)
-        sw s5, 200(a0)
-        sw s6, 208(a0)
-        sw s7, 216(a0)
-        sw s8, 224(a0)
-        sw s9, 232(a0)
-        sw s10, 240(a0)
-        sw s11, 248(a0)
-        sw t3, 256(a0)
-        sw t4, 264(a0)
-        sw t5, 272(a0)
-        sw t6, 280(a0)
+.globl switch_to
+.balign 4
+switch_to:
+    csrw	mscratch, a0
+	lw      a1, 31*SIZE_REG(a0)
+	csrw	mepc, a1
+	mv	t6, a0
+	reg_restore t6
+    mret
 
-	# save the user a0 in p->trapframe->a0
-        csrr t0, sscratch
-        sw t0, 112(a0)
+.globl trap_vector
+.balign 4
+trap_vector:
+    #store context
+    csrrw   t6, mscratch, t6
+    reg_save t6
+    mv  t5, t6
+    csrr    t6, mscratch
+    sw      t6, 30*SIZE_REG(t5)
+    csrr    a0, mepc
+    sw      a0, 31*SIZE_REG(t5)
 
-        # initialize kernel stack pointer, from p->trapframe->kernel_sp
-        lw sp, 8(a0)
+    #store context into mscratch
+    csrw    mscratch, t5
 
-        # make tp holw the current hartid, from p->trapframe->kernel_hartid
-        lw tp, 32(a0)
+    #call trap_handler   reg_t trap_handler(reg_t epc, reg_t cause)
+    csrr    a0, mepc
+    csrr    a1, mcause
+    call    trap_handler
+    csrw    mepc, a0
 
-        # load the address of usertrap(), from p->trapframe->kernel_trap
-        lw t0, 16(a0)
+    #restore context from mscratch
+    csrr    t6, mscratch
+    reg_restore t6
 
-        # fetch the kernel page table address, from p->trapframe->kernel_satp.
-        lw t1, 0(a0)
+    #return
+    mret
 
-        # wait for any previous memory operations to complete, so that
-        # they use the user page table.
-        sfence.vma zero, zero
-
-        # install the kernel page table.
-        csrw satp, t1
-
-        # flush now-stale user entries from the TLB.
-        sfence.vma zero, zero
-
-        # jump to usertrap(), which does not return
-        jr t0
-
-.globl userret
-userret:
-        # userret(pagetable)
-        # called by usertrapret() in trap.c to
-        # switch from kernel to user.
-        # a0: user page table, for satp.
-
-        # switch to the user page table.
-        sfence.vma zero, zero
-        csrw satp, a0
-        sfence.vma zero, zero
-
-        li a0, TRAPFRAME
-
-        # restore all but a0 from TRAPFRAME
-        lw ra, 40(a0)
-        lw sp, 48(a0)
-        lw gp, 56(a0)
-        lw tp, 64(a0)
-        lw t0, 72(a0)
-        lw t1, 80(a0)
-        lw t2, 88(a0)
-        lw s0, 96(a0)
-        lw s1, 104(a0)
-        lw a1, 120(a0)
-        lw a2, 128(a0)
-        lw a3, 136(a0)
-        lw a4, 144(a0)
-        lw a5, 152(a0)
-        lw a6, 160(a0)
-        lw a7, 168(a0)
-        lw s2, 176(a0)
-        lw s3, 184(a0)
-        lw s4, 192(a0)
-        lw s5, 200(a0)
-        lw s6, 208(a0)
-        lw s7, 216(a0)
-        lw s8, 224(a0)
-        lw s9, 232(a0)
-        lw s10, 240(a0)
-        lw s11, 248(a0)
-        lw t3, 256(a0)
-        lw t4, 264(a0)
-        lw t5, 272(a0)
-        lw t6, 280(a0)
-
-	# restore user a0
-        lw a0, 112(a0)
-        
-        # return to user mode and user pc.
-        # usertrapret() set up sstatus and sepc.
-        sret
+.end
+    

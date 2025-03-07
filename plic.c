@@ -1,28 +1,38 @@
+#include "types.h"
+#include "param.h"
+#include "platform.h"
+#include "riscv.h"
 #include "os.h"
 
-void plic_init()
+void plicinit(void)
 {
-    
-    int hart = r_tp(); /* 访问当前线程的 TCB */
-    *(uint32_t*)PLIC_PRIORITY(UART0_IRQ) = 1; /* 设置优先级 */
-    *(uint32_t*)PLIC_MENABLE(hart, UART0_IRQ)= (1 << (UART0_IRQ % 32)); /* 开启UART0设备中断 */
-    *(uint32_t*)PLIC_MTHRESHOLD(hart) = 0; /* 阈值设置为0 */
-    
-    w_mie(r_mie() | MIE_MEIE); /* 开启M级外部中断 */
-    w_mstatus(r_mstatus() | MSTATUS_MIE); /* 开启全局中断 */
+    // UART0和virtio disk的中断使能设置为1
+    *(uint32_t*)(PLIC + UART0_IRQ * 4) = 1;
+    *(uint32_t*)(PLIC + VIRTIO0_IRQ * 4) = 1;
 }
 
-/* 获取中断源ID */
+void plicinithart(void)
+{
+    int hart = cpuid();
+
+    //设置当前处理器的 S-mode ，启用uart和virtio disk中断
+    *(uint32_t*)PLIC_SENABLE(hart) = (1 << UART0_IRQ) | (1 << VIRTIO0_IRQ);
+
+    //设置当前处理器的 S-mode ，设置优先级阈值为0
+    *(uint32_t*)PLIC_SPRIORITY(hart) = 0;
+}
+
+// 获取中断源号
 int plic_claim(void)
 {
-    int hart = r_tp();
-    int irq = *(uint32_t*)PLIC_MCLAIM(hart);
+    int hart = cpuid();
+    int irq = *(uint32_t*)PLIC_SCLAIM(hart);
     return irq;
 }
 
 /* 完成中断 */
 void plic_complete(int irq)
 {
-    int hart = r_tp();
-    *(uint32_t*)PLIC_MCOMPLETE(hart) = irq;
+    int hart = cpuid();
+    *(uint32_t*)PLIC_SCLAIM(hart) = irq;
 }

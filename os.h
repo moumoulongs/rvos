@@ -20,19 +20,23 @@ struct stat;
 struct superblock;
 
 
-/* uart */
-extern int uart_putc(char ch);
-extern void uart_puts(char *s);
-extern void uart_isr(void);
+// uart.c
+void uartinit(void);
+void uartintr(void);
+void uartputc(int);
+void uartputc_sync(int);
+int  uartgetc(void);
 
 /* printf */
 extern int  printf(const char* s, ...);
 extern void panic(char *s);
 
-/* memory management */
+/* page.c */
 extern void kinit();
 extern void *kalloc(void);
 extern void kfree(void *pa);
+int copyout(uint64_t dstpa, char *src, uint64_t len);
+int copyin(char *dst, uint64_t src, uint64_t len);
 
 /* string.c */
 extern int memcmp(const void*, const void*, uint32_t);
@@ -42,11 +46,6 @@ extern char *safestrcpy(char*, const char*, int);
 extern int strlen(const char*);
 extern int strncmp(const char*, const char*, uint32_t);
 extern char *strncpy(char*, const char*, int);
-
-/* task management */
-void sched_init();
-extern int  task_create(void (*task)(void));
-extern void task_delay(volatile int count);
 
 /* trap management */
 void trap_init(void);
@@ -98,4 +97,14 @@ int             either_copyout(int user_dst, uint64_t dst, void *src, uint64_t l
 int             either_copyin(void *dst, int user_src, uint64_t src, uint64_t len);
 void            procdump(void);
 
+// trap.c
+extern uint32_t     ticks;
+void            trapinit(void);
+void            trapinithart(void);
+extern struct spinlock tickslock;
+void            usertrapret(void);
+
 #endif /* __OS_H__ */
+
+// number of elements in fixed-size array
+#define NELEM(x) (sizeof(x)/sizeof((x)[0]))
