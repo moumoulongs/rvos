@@ -27,7 +27,6 @@ SRCS_ASM = \
 	mem.S \
 	switch.S \
 	kernelvec.S \
-	trampoline.S \
 	
 
 SRCS_C = \

@@ -21,12 +21,11 @@ struct superblock;
 
 
 // uart.c
-void uartinit(void);
-void uartintr(void);
-void uartputc(int);
-void uartputc_sync(int);
-int  uartgetc(void);
-
+void            uartinit(void);
+void            uartintr(void);
+void            uartputc(int);
+void            uartputc_sync(int);
+int             uartgetc(void);
 /* printf */
 extern int  printf(const char* s, ...);
 extern void panic(char *s);
@@ -47,14 +46,18 @@ extern int strlen(const char*);
 extern int strncmp(const char*, const char*, uint32_t);
 extern char *strncpy(char*, const char*, int);
 
-/* trap management */
-void trap_init(void);
-void external_interrupt_handler(void);
+// trap.c
+extern uint32_t     ticks;
+void            trapinit(void);
+void            trapinithart(void);
+extern struct spinlock tickslock;
+// void            usertrapret(void);
 
-/* plic management */
-void plic_init(void);
-int plic_claim(void);
-void plic_complete(int irq);
+// plic.c
+void            plicinit(void);
+void            plicinithart(void);
+int             plic_claim(void);
+void            plic_complete(int);
 
 /* sched management */
 void sched_init(void);

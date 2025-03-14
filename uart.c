@@ -1,191 +1,141 @@
-//
-// low-level driver routines for 16550a UART.
-//
-
-#include "types.h"
-#include "param.h"
-#include "platform.h"
-#include "riscv.h"
-#include "spinlock.h"
-#include "proc.h"
 #include "os.h"
 
-// the UART control registers are memory-mapped
-// at address UART0. this macro returns the
-// address of one of the registers.
-#define Reg(reg) ((volatile unsigned char *)(UART0 + (reg)))
+/*
+ * The UART control registers are memory-mapped at address UART0. 
+ * This macro returns the address of one of the registers.
+ */
+#define UART_REG(reg) ((volatile uint8_t *)(UART0 + reg))
 
-// the UART control registers.
-// some have different meanings for
-// read vs write.
-// see http://byterunner.com/16550.html
-#define RHR 0                 // receive holding register (for input bytes)
-#define THR 0                 // transmit holding register (for output bytes)
-#define IER 1                 // interrupt enable register
-#define IER_RX_ENABLE (1<<0)
-#define IER_TX_ENABLE (1<<1)
-#define FCR 2                 // FIFO control register
-#define FCR_FIFO_ENABLE (1<<0)
-#define FCR_FIFO_CLEAR (3<<1) // clear the content of the two FIFOs
-#define ISR 2                 // interrupt status register
-#define LCR 3                 // line control register
-#define LCR_EIGHT_BITS (3<<0)
-#define LCR_BAUD_LATCH (1<<7) // special mode to set baud rate
-#define LSR 5                 // line status register
-#define LSR_RX_READY (1<<0)   // input is waiting to be read from RHR
-#define LSR_TX_IDLE (1<<5)    // THR can accept another character to send
+/*
+ * Reference
+ * [1]: TECHNICAL DATA ON 16550, http://byterunner.com/16550.html
+ */
 
-#define ReadReg(reg) (*(Reg(reg)))
-#define WriteReg(reg, v) (*(Reg(reg)) = (v))
+/*
+ * UART control registers map. see [1] "PROGRAMMING TABLE"
+ * note some are reused by multiple functions
+ * 0 (write mode): THR/DLL
+ * 1 (write mode): IER/DLM
+ */
+#define RHR 0	// Receive Holding Register (read mode)
+#define THR 0	// Transmit Holding Register (write mode)
+#define DLL 0	// LSB of Divisor Latch (write mode)
+#define IER 1	// Interrupt Enable Register (write mode)
+#define DLM 1	// MSB of Divisor Latch (write mode)
+#define FCR 2	// FIFO Control Register (write mode)
+#define ISR 2	// Interrupt Status Register (read mode)
+#define LCR 3	// Line Control Register
+#define MCR 4	// Modem Control Register
+#define LSR 5	// Line Status Register
+#define MSR 6	// Modem Status Register
+#define SPR 7	// ScratchPad Register
 
-// the transmit output buffer.
-struct spinlock uart_tx_lock;
-#define UART_TX_BUF_SIZE 32
-char uart_tx_buf[UART_TX_BUF_SIZE];
-uint64_t uart_tx_w; // write next to uart_tx_buf[uart_tx_w % UART_TX_BUF_SIZE]
-uint64_t uart_tx_r; // read next from uart_tx_buf[uart_tx_r % UART_TX_BUF_SIZE]
+/*
+ * POWER UP DEFAULTS
+ * IER = 0: TX/RX holding register interrupts are both disabled
+ * ISR = 1: no interrupt penting
+ * LCR = 0
+ * MCR = 0
+ * LSR = 60 HEX
+ * MSR = BITS 0-3 = 0, BITS 4-7 = inputs
+ * FCR = 0
+ * TX = High
+ * OP1 = High
+ * OP2 = High
+ * RTS = High
+ * DTR = High
+ * RXRDY = High
+ * TXRDY = Low
+ * INT = Low
+ */
 
-extern volatile int panicked; // from printf.c
+/*
+ * LINE STATUS REGISTER (LSR)
+ * LSR BIT 0:
+ * 0 = no data in receive holding register or FIFO.
+ * 1 = data has been receive and saved in the receive holding register or FIFO.
+ * ......
+ * LSR BIT 5:
+ * 0 = transmit holding register is full. 16550 will not accept any data for transmission.
+ * 1 = transmitter hold register (or FIFO) is empty. CPU can load the next character.
+ * ......
+ */
+#define LSR_RX_READY (1 << 0)
+#define LSR_TX_IDLE  (1 << 5)
 
-void uartstart();
+#define uart_read_reg(reg) (*(UART_REG(reg)))
+#define uart_write_reg(reg, v) (*(UART_REG(reg)) = (v))
 
-void
-uartinit(void)
+void uart_init()
 {
-  // disable interrupts.
-  WriteReg(IER, 0x00);
+	/* disable interrupts. */
+	uart_write_reg(IER, 0x00);
 
-  // special mode to set baud rate.
-  WriteReg(LCR, LCR_BAUD_LATCH);
+	/*
+	 * Setting baud rate. Just a demo here if we care about the divisor,
+	 * but for our purpose [QEMU-virt], this doesn't really do anything.
+	 *
+	 * Notice that the divisor register DLL (divisor latch least) and DLM (divisor
+	 * latch most) have the same base address as the receiver/transmitter and the
+	 * interrupt enable register. To change what the base address points to, we
+	 * open the "divisor latch" by writing 1 into the Divisor Latch Access Bit
+	 * (DLAB), which is bit index 7 of the Line Control Register (LCR).
+	 *
+	 * Regarding the baud rate value, see [1] "BAUD RATE GENERATOR PROGRAMMING TABLE".
+	 * We use 38.4K when 1.8432 MHZ crystal, so the corresponding value is 3.
+	 * And due to the divisor register is two bytes (16 bits), so we need to
+	 * split the value of 3(0x0003) into two bytes, DLL stores the low byte,
+	 * DLM stores the high byte.
+	 */
+	uint8_t lcr = uart_read_reg(LCR);
+	uart_write_reg(LCR, lcr | (1 << 7));
+	uart_write_reg(DLL, 0x03);
+	uart_write_reg(DLM, 0x00);
 
-  // LSB for baud rate of 38.4K.
-  WriteReg(0, 0x03);
+	/*
+	 * Continue setting the asynchronous data communication format.
+	 * - number of the word length: 8 bits
+	 * - number of stop bits：1 bit when word length is 8 bits
+	 * - no parity
+	 * - no break control
+	 * - disabled baud latch
+	 */
+	lcr = 0;
+	uart_write_reg(LCR, lcr | (3 << 0));
 
-  // MSB for baud rate of 38.4K.
-  WriteReg(1, 0x00);
-
-  // leave set-baud mode,
-  // and set word length to 8 bits, no parity.
-  WriteReg(LCR, LCR_EIGHT_BITS);
-
-  // reset and enable FIFOs.
-  WriteReg(FCR, FCR_FIFO_ENABLE | FCR_FIFO_CLEAR);
-
-  // enable transmit and receive interrupts.
-  WriteReg(IER, IER_TX_ENABLE | IER_RX_ENABLE);
-
-  initlock(&uart_tx_lock, "uart");
+	/*
+	 * enable receive interrupts.
+	 */
+	uint8_t ier = uart_read_reg(IER);
+	uart_write_reg(IER, ier | (1 << 0));
 }
 
-// add a character to the output buffer and tell the
-// UART to start sending if it isn't already.
-// blocks if the output buffer is full.
-// because it may block, it can't be called
-// from interrupts; it's only suitable for use
-// by write().
-void
-uartputc(int c)
+int uart_putc(char ch)
 {
-  acquire(&uart_tx_lock);
-
-  if(panicked){
-    for(;;)
-      ;
-  }
-  while(uart_tx_w == uart_tx_r + UART_TX_BUF_SIZE){
-    // buffer is full.
-    // wait for uartstart() to open up space in the buffer.
-    sleep(&uart_tx_r, &uart_tx_lock);
-  }
-  uart_tx_buf[uart_tx_w % UART_TX_BUF_SIZE] = c;
-  uart_tx_w += 1;
-  uartstart();
-  release(&uart_tx_lock);
+	while ((uart_read_reg(LSR) & LSR_TX_IDLE) == 0);
+	return uart_write_reg(THR, ch);
 }
 
-
-// alternate version of uartputc() that doesn't 
-// use interrupts, for use by kernel printf() and
-// to echo characters. it spins waiting for the uart's
-// output register to be empty.
-void
-uartputc_sync(int c)
+void uart_puts(char *s)
 {
-  push_off();
-
-  if(panicked){
-    for(;;)
-      ;
-  }
-
-  // wait for Transmit Holding Empty to be set in LSR.
-  while((ReadReg(LSR) & LSR_TX_IDLE) == 0)
-    ;
-  WriteReg(THR, c);
-
-  pop_off();
+	while (*s) {
+		uart_putc(*s++);
+	}
 }
 
-// if the UART is idle, and a character is waiting
-// in the transmit buffer, send it.
-// caller must hold uart_tx_lock.
-// called from both the top- and bottom-half.
-void
-uartstart()
+int uart_getc(void)
 {
-  while(1){
-    if(uart_tx_w == uart_tx_r){
-      // transmit buffer is empty.
-      ReadReg(ISR);
-      return;
-    }
-    
-    if((ReadReg(LSR) & LSR_TX_IDLE) == 0){
-      // the UART transmit holding register is full,
-      // so we cannot give it another byte.
-      // it will interrupt when it's ready for a new byte.
-      return;
-    }
-    
-    int c = uart_tx_buf[uart_tx_r % UART_TX_BUF_SIZE];
-    uart_tx_r += 1;
-    
-    // maybe uartputc() is waiting for space in the buffer.
-    wakeup(&uart_tx_r);
-    
-    WriteReg(THR, c);
-  }
+	while (0 == (uart_read_reg(LSR) & LSR_RX_READY))
+		;
+	return uart_read_reg(RHR);
 }
 
-// read one input character from the UART.
-// return -1 if none is waiting.
-int
-uartgetc(void)
+/*
+ * handle a uart interrupt, raised because input has arrived, called from trap.c.
+ */
+void uart_isr(void)
 {
-  if(ReadReg(LSR) & 0x01){
-    // input data is ready.
-    return ReadReg(RHR);
-  } else {
-    return -1;
-  }
-}
-
-// handle a uart interrupt, raised because input has
-// arrived, or the uart is ready for more output, or
-// both. called from devintr().
-void
-uartintr(void)
-{
-  // read and process incoming characters.
-  while(1){
-    int c = uartgetc();
-    if(c == -1)
-      break;
-    consoleintr(c);
-  }
-
-  // send buffered characters.
-  acquire(&uart_tx_lock);
-  uartstart();
-  release(&uart_tx_lock);
+	uart_putc((char)uart_getc());
+	/* add a new line just to look better */
+	uart_putc('\n');
 }
